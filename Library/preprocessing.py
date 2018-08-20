@@ -23,6 +23,7 @@
 # DEALINGS IN THE SOFTWARE.
 
 import pandas as pd
+import numpy as np
 import datetime
 from sklearn.model_selection import train_test_split
 from keras.utils.np_utils import to_categorical # convert to one-hot-encoding
@@ -31,53 +32,47 @@ import sys
 sys.path.append('..')
 from keras.preprocessing.image import ImageDataGenerator
 
-def main():
+def main(random_seed = 42):
     start_time = datetime.datetime.now().replace(microsecond=0)
-    print("Loading data...")
+    print("Start preprocessing...")
 
-    # Read data and merge
-    training = pd.read_csv('../Data/train.csv')
-    test = pd.read_csv('../Data/test.csv')
-    target = training["label"]
-    training.drop(labels=["label"], axis = 1, inplace = True)
-    print("data prepared successfully.")
-
-    # Grayscale normalization
-    training = training/255.0
-    test = test/255.0
-    
-    # Reshape image in 3 dimensions (height = 28px, width = 28px, canal = 1)
-    training = training.values.reshape(-1, 28, 28, 1)
-    test = test.values.reshape(-1, 28, 28, 1)
-
-    # Laebl encoding target
-    target = to_categorical(target, num_classes = 10)
-    
-    # Set random seed
-    random_seed = 42
+    # prepare training data
+    training ='../Data/train.csv'
+    input_data = np.loadtxt(training, skiprows=1, dtype='int', delimiter=',')
 
     # Split the trarin and the validation set for the fitting
-    print("Splitting training into training and validation sets...")
-    X_train, X_val, Y_train, Y_val = train_test_split(training, target, test_size = 0.1, random_state = random_seed)
-    
-    end_time = datetime.datetime.now().replace(microsecond=0)
-    print('Elapsed time of preprocessing: {}'.format(end_time - start_time))
+    x_train, x_val, y_train, y_val = train_test_split(input_data[:,1:], 
+                                                      input_data[:,0], 
+                                                      test_size=0.1,
+                                                      random_state = random_seed)
 
-    datagen = ImageDataGenerator(
-        featurewise_center=False,  # set input mean to 0 over the dataset
-        samplewise_center=False,  # set each sample mean to 0
-        featurewise_std_normalization=False,  # divide inputs by std of the dataset
-        samplewise_std_normalization=False,  # divide each input by its std
-        zca_whitening=False,  # apply ZCA whitening
-        rotation_range=10,  # randomly rotate images in the range (degrees, 0 to 180)
-        zoom_range = 0.1, # Randomly zoom image 
-        width_shift_range=0.1,  # randomly shift images horizontally (fraction of total width)
-        height_shift_range=0.1,  # randomly shift images vertically (fraction of total height)
-        horizontal_flip=False,  # randomly flip images
-        vertical_flip=False)  # randomly flip images
-    datagen.fit(X_train)
-    
-    return datagen, X_train, Y_train, X_val, Y_val, test
+    # Reshape image in 3 dimensions (height = 28px, width = 28px, canal = 1)
+    x_train = x_train.reshape(-1, 28, 28, 1)
+    x_val = x_val.reshape(-1, 28, 28, 1)
+
+    # Grayscale normalization
+    x_train = x_train.astype("float32")/255
+    x_val = x_val.astype("float32")/255
+
+    # Label encoding target
+    y_train = to_categorical(y_train)
+    y_val = to_categorical(y_val)
+
+    # Data augmentation
+    datagen = ImageDataGenerator(zoom_range = 0.1,
+                            height_shift_range = 0.1,
+                            width_shift_range = 0.1,
+                            rotation_range = 10)
+
+    # prepare test data
+    test = '../Data/test.csv'
+    test_data = np.loadtxt(test, skiprows=1, dtype='int', delimiter=',')
+    x_test = test_data.astype("float32")
+    x_test = x_test.reshape(-1, 28, 28, 1)/255
+
+    end_time = datetime.datetime.now().replace(microsecond=0)
+    print('Data preprocessing completed.: {}'.format(end_time - start_time))
+    return datagen, x_train, x_val, y_train, y_val, x_test
 
 
 
